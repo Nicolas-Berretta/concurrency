@@ -1,6 +1,7 @@
 use std::{
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
+    time::Instant,
 };
 
 fn main() {
@@ -21,10 +22,12 @@ fn handle_connection(mut stream: TcpStream) {
         .take_while(|line| !line.is_empty())
         .collect();
     let terms = handle_request(&http_request[0]).unwrap();// handle the first value in the request -> "GET /pi/1 HTTP/1.1"
+    let start_time = Instant::now();
     let pi = liebniz_series(terms);
+    let duration = start_time.elapsed().as_secs_f64();
     let body = format!(
-        "The value of pi approximated using {} terms is: {:.15}",
-        terms, pi
+        "The value of pi approximated using {} terms is: {:.15} (Time: {:.3} seconds)",
+        terms, pi,duration
     );
     let response = format!(
         "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
@@ -38,7 +41,7 @@ fn handle_request(request_line: &str) -> Option<usize> {// TODO: use result mayb
     let parts: Vec<&str> = request_line.split_whitespace().collect();
 
     if parts.len() < 3 { // parts should be like: "GET /pi/1 HTTP/1.1"
-        return None;// if so, i am missing something
+        return None;// if so, I am missing something
     }
 
     if parts[0] != "GET" {
