@@ -56,7 +56,7 @@ fn handle_connection(mut stream: TcpStream) {
     stream.write_all(response.as_bytes()).unwrap();
 }
 
-fn handle_request(request_line: &str) -> Result<usize, RequestError> { // TODO: use result maybe
+fn handle_request(request_line: &str) -> Result<usize, RequestError> {
     let parts: Vec<&str> = request_line.split_whitespace().collect();
 
     if parts.len() < 3 { // parts should be like: "GET /pi/1 HTTP/1.1"
