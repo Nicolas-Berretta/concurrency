@@ -33,47 +33,39 @@ fn handle_connection(mut stream: TcpStream) {
         Ok(terms) => terms,
         Err(error) => {
             let response = match error {
-                RequestError::ParseError { message } => format!("HTTP/1.1 400 Bad Request\r\nContent-Length: {}\r\n\r\n{}", message.len(), message),
-                RequestError::UnknownMethod { message } => format!("HTTP/1.1 405 Method Not Allowed\r\nContent-Length: {}\r\n\r\n{}", message.len(), message),
-                RequestError::PathError { message } => format!("HTTP/1.1 404 Not Found\r\nContent-Length: {}\r\n\r\n{}", message.len(), message),
+                RequestError::ParseError { message } => format_response("400 Bad Request", &message),
+                RequestError::UnknownMethod { message } => format_response("405 Method Not Allowed", &message),
+                RequestError::PathError { message } => format_response("404 Not Found", &message),
             };
-            stream.write_all(response.as_bytes()).unwrap();
+            stream.write_all(response.as_bytes()).expect("Failed to write response");
             return;
         }
     };
-
     let start_time = Instant::now();
     let pi = math::liebniz_series(terms);
     let duration = start_time.elapsed().as_secs_f64();
     let body = format!(
         "The value of pi approximated using {} terms is: {:.15} (Time: {:.3} seconds)",
-        terms, pi,duration
+        terms, pi, duration
     );
-    let response = format!(
-        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
-        body.len(),
-        body
-    );
-    stream.write_all(response.as_bytes()).unwrap();
+    let response = format_response("200 OK", &body);
+    stream.write_all(response.as_bytes()).expect("Failed to write response");
 }
 
 fn handle_request(request_line: &str) -> Result<usize, RequestError> {
     let parts: Vec<&str> = request_line.split_whitespace().collect();
-
     if parts.len() < 3 { // parts should be like: "GET /pi/1 HTTP/1.1"
         return Err(RequestError::ParseError {message: "Unknown method or path".to_string() });// if so, I am missing something
     }
-
     if parts[0] != "GET" {
         return Err(RequestError::UnknownMethod {message: "Method must be GET".to_string()});
     }
-    let path = parts[1]; // /pi/1
-    if path.starts_with("/pi/") {//
-        let terms_str = path.strip_prefix("/pi/") ;
-        return match terms_str.expect("REASON").parse::<usize>() {
-            Ok(terms) => Ok(terms),
-            Err(error) => {Err(RequestError::ParseError {message: error.to_string()})},
-        }
+    if let Some(terms_str) = parts[1].strip_prefix("/pi/") {
+        return terms_str.parse::<usize>().map_err(|error| RequestError::ParseError {message: error.to_string()});
     }
     Err(RequestError::PathError {message: "Invalid path".to_string()})
+}
+
+fn format_response(status: &str, body: &str) -> String {
+    format!("HTTP/1.1 {}\r\nContent-Length: {}\r\n\r\n{}", status, body.len(), body)
 }
