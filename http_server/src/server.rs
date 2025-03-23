@@ -1,7 +1,5 @@
 use std::{
-    io::{prelude::*, BufReader},
-    net::{TcpListener, TcpStream},
-    time::Instant,
+    io::{prelude::*, BufReader}, net::{TcpListener, TcpStream}, thread, time::Instant
 };
 use crate::math;
 
@@ -14,20 +12,38 @@ enum RequestError {
 pub fn start_server() {
     let listener = TcpListener::bind("127.0.0.1:3030").unwrap();
 
-    for stream in listener.incoming() {
-        let stream = stream.unwrap();
+    // for stream in listener.incoming() {
+    //     let stream = stream.unwrap();
 
-        handle_connection(stream);
-    }
+    //     handle_connection(stream);
+    // }
+
+    thread::scope(|s| {
+        listener.incoming()
+            .filter_map(|stream| stream.ok())
+            .for_each(|stream| {
+                s.spawn(move || {
+                    handle_connection(stream);
+                });
+            });
+    });
+
 }
 
 fn handle_connection(mut stream: TcpStream) {
+    let start_time = Instant::now();
     let buf_reader = BufReader::new(&stream);
     let http_request: Vec<String> = buf_reader
         .lines()
         .map(|result| result.unwrap())
         .take_while(|line| !line.is_empty())
         .collect();
+
+    if http_request.is_empty() {
+        let response = format_response("400 Bad Request", "Empty request received");
+        stream.write_all(response.as_bytes()).expect("Failed to write response");
+        return;
+    }
 
     let terms = match handle_request(&http_request[0]) {
         Ok(terms) => terms,
@@ -41,7 +57,6 @@ fn handle_connection(mut stream: TcpStream) {
             return;
         }
     };
-    let start_time = Instant::now();
     let pi = math::liebniz_series(terms);
     let duration = start_time.elapsed().as_secs_f64();
     let body = format!(
