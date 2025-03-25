@@ -117,13 +117,104 @@ fn handle_file(query: &str, contents: &str) {
 // cargo run -- <seq/conc/c-chunk> <word> <[book.txt, book.txt, book.txt, book.txt]>
 
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::io::Write;
 
-//     #[test]
-//     fn it_works() {
-//         let result = add(2, 2);
-//         assert_eq!(result, 4);
-//     }
-// }
+    fn create_test_file(file_name: &str, content: &str) -> std::io::Result<()> {
+        let mut file = fs::File::create(file_name)?;
+        file.write_all(content.as_bytes())?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_sequential_search() -> Result<(), Box<dyn Error>> {
+        let file_name = "test_seq.txt";
+        let content = "Hello Rust!\nThis is a test file.\nRust is great!";
+        create_test_file(file_name, content)?;
+
+        let args = vec![
+            "mini_grep".to_string(),
+            "seq".to_string(),
+            "Rust".to_string(),
+            file_name.to_string(),
+        ];
+
+        let config = Config::build(&args)?;
+        let result = run(config);
+
+        fs::remove_file(file_name)?;
+        assert!(result.is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_concurrent_search() -> Result<(), Box<dyn Error>> {
+        let file_name = "test_conc.txt";
+        let content = "Rust is concurrent!\nConcurrency is powerful.\nLet's test it!";
+        create_test_file(file_name, content)?;
+
+        let args = vec![
+            "mini_grep".to_string(),
+            "conc".to_string(),
+            "Concurrency".to_string(),
+            file_name.to_string(),
+        ];
+
+        let config = Config::build(&args)?;
+        let result = run(config);
+
+        fs::remove_file(file_name)?;
+        assert!(result.is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_chunked_search() -> Result<(), Box<dyn Error>> {
+        let file_name = "test_chunk.txt";
+        let content = "Chunk testing.\nBreaking it into smaller pieces.\nChunk processing!";
+        create_test_file(file_name, content)?;
+
+        let args = vec![
+            "mini_grep".to_string(),
+            "c-chunk".to_string(),
+            "Chunk".to_string(),
+            file_name.to_string(),
+        ];
+
+        let config = Config::build(&args)?;
+        let result = run(config);
+
+        fs::remove_file(file_name)?;
+        assert!(result.is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_invalid_method() {
+        let args = vec![
+            "mini_grep".to_string(),
+            "invalid_method".to_string(),
+            "Rust".to_string(),
+            "file.txt".to_string(),
+        ];
+
+        let config = Config::build(&args).unwrap();
+        let result = run(config);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_missing_arguments() {
+        let args = vec!["mini_grep".to_string()];
+        let result = Config::build(&args);
+
+        assert!(result.is_err());
+    }
+}
