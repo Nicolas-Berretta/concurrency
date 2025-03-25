@@ -28,7 +28,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error + Send + Sync>> {
     match config.method.as_str() {
         "seq" => sequential_search(config),
         "conc" => concurrency_search(config),
-//        "c-chunk" => c_chuck_search(config),
+        "c-chunk" => c_chuck_search(config),
         _ => Err("Invalid method".into())
 
     }
@@ -73,9 +73,38 @@ fn concurrency_search(config: Config) -> Result<(), Box<dyn Error + Send + Sync>
     Ok(())
 }
 
-// fn c_chuck_search(config: Config) -> Result<(), Box<dyn Error + Send + Sync>> {
+fn c_chuck_search(config: Config) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let query = Arc::new(config.query);
 
-// }
+    let handles: Vec<_> = config.file_paths
+        .iter()
+        .map(|file_path| {
+            let query = Arc::clone(&query);
+            let file_path = file_path.clone();
+
+            thread::spawn(move || {
+                let contents = fs::read_to_string(&file_path)?;
+                let lines: Vec<&str> = contents.lines().collect();
+                let chunks = lines.chunks(100);
+
+                for chunk in chunks {
+                    let query = Arc::clone(&query);
+                    let chunk_string = chunk.join("\n");
+                    thread::spawn(move || {
+                        handle_file(&query, &chunk_string);
+                    });
+                }
+                Ok::<(), Box<dyn Error + Send + Sync>>(())
+            })
+        })
+        .collect();
+    for handle in handles {
+        if let Err(err) = handle.join().unwrap() {
+            return Err(err);
+        }
+    }
+    Ok(())
+}
 
 fn handle_file(query: &str, contents: &str) {
     contents
