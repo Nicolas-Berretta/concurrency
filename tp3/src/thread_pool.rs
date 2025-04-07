@@ -1,13 +1,15 @@
 use std::{
-    net::{TcpListener},
+    net::TcpListener,
     sync::{mpsc, Arc, Mutex},
     thread,
 };
-use crate::request_handler::handle_connection;
+use tp1::request_handler::handle_connection;
+
+const POOL_SIZE: usize = 10;
 
 pub fn start_server() {
     let listener = TcpListener::bind("127.0.0.1:3030").unwrap();
-    let pool = ThreadPool::new(10);
+    let pool = ThreadPool::new(POOL_SIZE);
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();

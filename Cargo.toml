@@ -1,5 +1,5 @@
 [workspace]
 resolver = "2"
 members = [
-    "http_server", "mini_grep",
+    "mini_grep", "tp1", "tp2", "tp3",
 ]
